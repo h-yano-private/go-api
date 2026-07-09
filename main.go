@@ -1,15 +1,43 @@
 // このファイルがメインプログラムという宣言
-package main 
+package main
 
 import (
 	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
-func main(){
+type Task struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+var tasks = []Task{
+	{ID: "1", Title: "Go言語の勉強をする"},
+	{ID: "2", Title: "Gitのコミットをする"},
+}
+
+func main() {
 	r := gin.Default()
 
-	r.GET("/",func(c *gin.Context){c.JSON(http.StatusOK,gin.H{"message":"こんにちは!",})})
+	// もしブラウザから、ただのURL(/)にアクセスされたらこんにちはと表示する
+	//r.GET("/", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "こんにちは!"}) })
+
+	// タスク一覧を取得するAPI(GET/tasks)
+	r.GET("/tasks", func(c *gin.Context) {
+		c.JSON(http.StatusOK, tasks)
+	})
+
+	r.POST("/tasks", func(c *gin.Context) {
+		var newTask Task
+		if err := c.ShouldBindJSON(&newTask); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		tasks = append(tasks, newTask)
+
+		c.JSON(http.StatusCreated, newTask)
+	})
 
 	r.Run()
 }
