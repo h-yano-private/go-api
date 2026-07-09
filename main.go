@@ -13,8 +13,8 @@ type Task struct {
 }
 
 var tasks = []Task{
-	{ID: "1", Title:"Go言語の勉強をする"},
-	{ID: "2", Title:"Gitのコミットをする"},
+	{ID: "1", Title: "Go言語の勉強をする"},
+	{ID: "2", Title: "Gitのコミットをする"},
 }
 
 func main() {
@@ -24,8 +24,19 @@ func main() {
 	//r.GET("/", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"message": "こんにちは!"}) })
 
 	// タスク一覧を取得するAPI(GET/tasks)
-	r.GET("/tasks", func(c *gin.Context){
+	r.GET("/tasks", func(c *gin.Context) {
 		c.JSON(http.StatusOK, tasks)
+	})
+
+	r.POST("/tasks", func(c *gin.Context) {
+		var newTask Task
+		if err := c.ShouldBindJSON(&newTask); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		tasks = append(tasks, newTask)
+
+		c.JSON(http.StatusCreated, newTask)
 	})
 
 	r.Run()

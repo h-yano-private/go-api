@@ -1,0 +1,13 @@
+### タスク一覧を取得（GET）
+GET https://sturdy-space-zebra-pjv6wwgwxp9529r6r-8080.app.github.dev/tasks
+
+###
+
+### タスクを追加（POST）
+POST https://sturdy-space-zebra-pjv6wwgwxp9529r6r-8080.app.github.dev/tasks
+Content-Type: application/json
+
+{
+  "id": "3",
+  "title": "午後に画面を作る"
+}
