@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -52,6 +53,49 @@ func main() {
 		// 成功を通知
 		c.JSON(http.StatusCreated, newTask)
 	})
+
+	r.DELETE("/tasks/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		taskID := 0
+		// Parse the ID parameter
+		if _, err := fmt.Sscanf(id, "%d", &taskID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID"})
+			return
+		}
+		// Find and delete the task
+		for i, task := range tasks {
+			if task.ID == taskID {
+				tasks = append(tasks[:i], tasks[i+1:]...)
+				c.JSON(http.StatusOK, gin.H{"message": "Task deleted"})
+				return
+			}
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+	})
+
+	r.PUT("/tasks/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		taskID := 0
+		// Parse the ID parameter
+		if _, err := fmt.Sscanf(id, "%d", &taskID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID"})
+			return
+		}
+		// Find the task
+		for i, task := range tasks {
+			if task.ID == taskID {
+				// Update the task
+				if err := c.ShouldBindJSON(&tasks[i]); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
+				c.JSON(http.StatusOK, tasks[i])
+				return
+			}
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+	})
+
 	// 通信を待ち受ける
 	r.Run(":8080")
 }
