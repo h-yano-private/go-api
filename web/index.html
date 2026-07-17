@@ -198,9 +198,28 @@
         }
         
         .task-progress {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             margin-top: 8px;
             font-size: 14px;
             color: #555;
+        }
+
+        .progress-track {
+            flex: 1;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 999px;
+            overflow: hidden;
+            min-width: 120px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
+            transition: width 0.3s ease;
         }
         
         .subtask-list {
@@ -304,6 +323,11 @@
                     <option value="overdue">期限切れ</option>
                     <option value="due-soon">あと3日以内</option>
                     <option value="no-deadline">期限なし</option>
+                </select>
+                <select id="sort-order" onchange="applySort(this.value)">
+                    <option value="default">並び替え: なし</option>
+                    <option value="priority-desc">優先度: 高→低</option>
+                    <option value="priority-asc">優先度: 低→高</option>
                 </select>
                 <select id="task-priority">
                     <option value="medium">優先度: 中</option>

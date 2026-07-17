@@ -3,6 +3,7 @@ let tasksCache = [];
 let statusFilter = 'all';
 let deadlineFilter = 'all';
 let keywordFilter = '';
+let sortOrder = 'default';
 
 function isUrgent(deadline) {
     if (!deadline) return false;
@@ -37,10 +38,31 @@ function getPriorityLabel(priority) {
     }
 }
 
+function getPriorityRank(priority) {
+    switch ((priority || 'medium').toLowerCase()) {
+        case 'high': return 3;
+        case 'medium': return 2;
+        case 'low': return 1;
+        default: return 2;
+    }
+}
+
+function sortTasks(tasks) {
+    const sortedTasks = [...tasks];
+
+    if (sortOrder === 'priority-desc') {
+        sortedTasks.sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority));
+    } else if (sortOrder === 'priority-asc') {
+        sortedTasks.sort((a, b) => getPriorityRank(a.priority) - getPriorityRank(b.priority));
+    }
+
+    return sortedTasks;
+}
+
 function getFilteredTasks() {
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
 
-    return tasksCache.filter(task => {
+    const filteredTasks = tasksCache.filter(task => {
         if (statusFilter === 'completed' && !task.completed) return false;
         if (statusFilter === 'not-completed' && task.completed) return false;
         if (deadlineFilter === 'overdue' && !isOverdue(task.deadline)) return false;
@@ -52,6 +74,8 @@ function getFilteredTasks() {
         }
         return true;
     });
+
+    return sortTasks(filteredTasks);
 }
 
 function applyFilters(type, value) {
@@ -66,6 +90,11 @@ function applyFilters(type, value) {
 
 function applyKeywordSearch(value) {
     keywordFilter = value;
+    renderTasks();
+}
+
+function applySort(value) {
+    sortOrder = value;
     renderTasks();
 }
 
@@ -109,7 +138,20 @@ function renderTasks() {
         if (progress) {
             const progressLine = document.createElement('div');
             progressLine.className = 'task-progress';
-            progressLine.textContent = `進捗: ${progress.percent}% (${progress.done}/${progress.total})`;
+
+            const progressText = document.createElement('span');
+            progressText.textContent = `${progress.percent}% (${progress.done}/${progress.total})`;
+            progressLine.appendChild(progressText);
+
+            const barTrack = document.createElement('div');
+            barTrack.className = 'progress-track';
+
+            const barFill = document.createElement('div');
+            barFill.className = 'progress-fill';
+            barFill.style.width = `${progress.percent}%`;
+            barTrack.appendChild(barFill);
+
+            progressLine.appendChild(barTrack);
             content.appendChild(progressLine);
         }
 
