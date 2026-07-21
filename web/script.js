@@ -1,7 +1,8 @@
-const API_URL = 'https://sturdy-space-zebra-pjv6wwgwxp9529r6r-8080.app.github.dev/tasks';
+const API_URL = '/tasks';
 let tasksCache = [];
 let statusFilter = 'all';
 let deadlineFilter = 'all';
+let categoryFilter = 'all';
 let keywordFilter = '';
 let sortOrder = 'default';
 
@@ -38,6 +39,25 @@ function getPriorityLabel(priority) {
     }
 }
 
+function getCategoryLabel(category) {
+    switch (category) {
+        case 'work': return '仕事';
+        case 'personal': return 'プライベート';
+        case 'shopping': return '買い物';
+        case 'other': return 'その他';
+        default: return 'なし';
+    }
+}
+
+function getRecurrenceLabel(recurrence) {
+    switch (recurrence) {
+        case 'daily': return '毎日';
+        case 'weekly': return '毎週';
+        case 'monthly': return '毎月';
+        default: return 'なし';
+    }
+}
+
 function getPriorityRank(priority) {
     switch ((priority || 'medium').toLowerCase()) {
         case 'high': return 3;
@@ -68,8 +88,12 @@ function getFilteredTasks() {
         if (deadlineFilter === 'overdue' && !isOverdue(task.deadline)) return false;
         if (deadlineFilter === 'due-soon' && !isUrgent(task.deadline)) return false;
         if (deadlineFilter === 'no-deadline' && task.deadline) return false;
+        if (categoryFilter !== 'all') {
+            if (categoryFilter === 'none' && task.category) return false;
+            if (categoryFilter !== 'none' && task.category !== categoryFilter) return false;
+        }
         if (normalizedKeyword) {
-            const taskText = `${task.title} ${task.deadline || ''} ${(task.subtasks || []).map(subtask => subtask.title).join(' ')}`.toLowerCase();
+            const taskText = `${task.title} ${task.deadline || ''} ${task.category || ''} ${(task.subtasks || []).map(subtask => subtask.title).join(' ')}`.toLowerCase();
             if (!taskText.includes(normalizedKeyword)) return false;
         }
         return true;
@@ -84,6 +108,9 @@ function applyFilters(type, value) {
     }
     if (type === 'deadline') {
         deadlineFilter = value;
+    }
+    if (type === 'category') {
+        categoryFilter = value;
     }
     renderTasks();
 }
@@ -126,6 +153,24 @@ function renderTasks() {
         priority.className = `task-priority ${task.priority || 'medium'}`;
         priority.textContent = `優先度: ${getPriorityLabel(task.priority)}`;
         content.appendChild(priority);
+
+        if (task.category || task.recurrence) {
+            const metaRow = document.createElement('div');
+            metaRow.className = 'task-meta';
+            if (task.category) {
+                const categoryLabel = document.createElement('span');
+                categoryLabel.className = `task-category ${task.category}`;
+                categoryLabel.textContent = `カテゴリ: ${getCategoryLabel(task.category)}`;
+                metaRow.appendChild(categoryLabel);
+            }
+            if (task.recurrence && task.recurrence !== 'none') {
+                const recurrenceLabel = document.createElement('span');
+                recurrenceLabel.className = 'task-recurrence';
+                recurrenceLabel.textContent = `繰り返し: ${getRecurrenceLabel(task.recurrence)}`;
+                metaRow.appendChild(recurrenceLabel);
+            }
+            content.appendChild(metaRow);
+        }
 
         if (task.deadline) {
             const deadline = document.createElement('div');
@@ -197,9 +242,19 @@ function renderTasks() {
         editButton.className = 'btn-edit';
         editButton.onclick = () => {
             const newTitle = prompt('新しいタイトルを入力してください:', task.title);
-            if (newTitle) {
-                updateTask(task.id, { title: newTitle });
-            }
+            if (newTitle === null) return;
+
+            const newCategory = prompt('カテゴリを入力してください（仕事 / プライベート / 買い物 / その他）:', getCategoryLabel(task.category));
+            if (newCategory === null) return;
+
+            const newRecurrence = prompt('繰り返しを入力してください（none / daily / weekly / monthly）:', getRecurrenceLabel(task.recurrence));
+            if (newRecurrence === null) return;
+
+            updateTask(task.id, {
+                title: newTitle,
+                category: sanitizeCategory(newCategory),
+                recurrence: sanitizeRecurrence(newRecurrence)
+            });
         };
         actions.appendChild(editButton);
 
@@ -217,6 +272,11 @@ function renderTasks() {
 async function fetchTasks(){
     try{
         const responce = await fetch(API_URL);
+        if (!responce.ok) {
+            const message = await responce.text();
+            console.error('タスク取得に失敗しました:', responce.status, message);
+            return;
+        }
         const tasks = await responce.json();
 
         tasksCache = tasks || [];
@@ -233,16 +293,18 @@ async function postTask(){
     const title = input.value;
     const deadline = deadlineInput.value;
     const priority = priorityInput.value;
+    const category = document.getElementById('task-category').value;
+    const recurrence = document.getElementById('task-recurrence').value;
 
     if (!title){
         alert("入力されていません");
         return;
     }
 
-    await addTask(title, deadline, priority);
+    await addTask(title, deadline, priority, category, recurrence);
 } 
 
-async function addTask(title, deadline = '', priority = 'medium'){
+async function addTask(title, deadline = '', priority = 'medium', category = '', recurrence = 'none'){
     const responce = await fetch(API_URL, {
         method: 'POST',
         headers: {
@@ -252,18 +314,26 @@ async function addTask(title, deadline = '', priority = 'medium'){
             title: title,
             deadline: deadline,
             priority: priority,
+            category: category,
+            recurrence: recurrence,
             completed: false,
             subtasks: []
         }),
     })
     
-    if (responce.ok){
-        console.log("追加成功!");
-        document.getElementById('task-input').value = '';
-        document.getElementById('task-deadline').value = '';
-        document.getElementById('task-priority').value = 'medium';
-        fetchTasks();
+    if (!responce.ok) {
+        const message = await responce.text();
+        console.error('タスク追加に失敗しました:', responce.status, message);
+        return;
     }
+
+    console.log("追加成功!");
+    document.getElementById('task-input').value = '';
+    document.getElementById('task-deadline').value = '';
+    document.getElementById('task-priority').value = 'medium';
+    document.getElementById('task-category').value = '';
+    document.getElementById('task-recurrence').value = 'none';
+    fetchTasks();
 }
 
 async function deleteTask(id){
@@ -351,5 +421,9 @@ async function addSubtask(taskId) {
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchTasks();
+    const addButton = document.getElementById('add-button');
+    if (addButton) {
+        addButton.addEventListener('click', postTask);
+    }
     console.log("アプリの初期化完了！");
 });

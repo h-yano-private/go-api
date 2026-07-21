@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,20 +20,24 @@ type Subtask struct {
 }
 
 type Task struct {
-	ID        int       `json:"id"`
-	Title     string    `json:"title"`
-	Completed bool      `json:"completed"`
-	Deadline  string    `json:"deadline"`
-	Priority  string    `json:"priority"`
-	Subtasks  []Subtask `json:"subtasks"`
+	ID         int       `json:"id"`
+	Title      string    `json:"title"`
+	Completed  bool      `json:"completed"`
+	Deadline   string    `json:"deadline"`
+	Priority   string    `json:"priority"`
+	Category   string    `json:"category"`
+	Recurrence string    `json:"recurrence"`
+	Subtasks   []Subtask `json:"subtasks"`
 }
 
 type UpdateTaskInput struct {
-	Title     *string    `json:"title"`
-	Completed *bool      `json:"completed"`
-	Deadline  *string    `json:"deadline"`
-	Priority  *string    `json:"priority"`
-	Subtasks  *[]Subtask `json:"subtasks"`
+	Title      *string    `json:"title"`
+	Completed  *bool      `json:"completed"`
+	Deadline   *string    `json:"deadline"`
+	Priority   *string    `json:"priority"`
+	Category   *string    `json:"category"`
+	Recurrence *string    `json:"recurrence"`
+	Subtasks   *[]Subtask `json:"subtasks"`
 }
 
 var tasks = []Task{}
@@ -47,11 +52,29 @@ func ensureSubtaskIDs(subtasks []Subtask) []Subtask {
 }
 
 func normalizePriority(priority string) string {
-	switch priority {
+	switch strings.ToLower(priority) {
 	case "high", "medium", "low":
-		return priority
+		return strings.ToLower(priority)
 	default:
 		return "medium"
+	}
+}
+
+func normalizeCategory(category string) string {
+	switch strings.ToLower(category) {
+	case "work", "personal", "shopping", "other":
+		return strings.ToLower(category)
+	default:
+		return ""
+	}
+}
+
+func normalizeRecurrence(recurrence string) string {
+	switch strings.ToLower(recurrence) {
+	case "daily", "weekly", "monthly":
+		return strings.ToLower(recurrence)
+	default:
+		return "none"
 	}
 }
 
@@ -66,6 +89,49 @@ func computeTaskCompletion(task Task) bool {
 		}
 	}
 	return true
+}
+
+func getNextDeadline(deadline string, recurrence string) string {
+	if deadline == "" || recurrence == "none" {
+		return deadline
+	}
+
+	parsed, err := time.Parse("2006-01-02", deadline)
+	if err != nil {
+		return deadline
+	}
+
+	switch recurrence {
+	case "daily":
+		parsed = parsed.AddDate(0, 0, 1)
+	case "weekly":
+		parsed = parsed.AddDate(0, 0, 7)
+	case "monthly":
+		parsed = parsed.AddDate(0, 1, 0)
+	}
+
+	return parsed.Format("2006-01-02")
+}
+
+func createRecurringTask(source Task) Task {
+	newSubtasks := make([]Subtask, len(source.Subtasks))
+	for i, subtask := range source.Subtasks {
+		newSubtasks[i] = Subtask{
+			ID:        subtask.ID,
+			Title:     subtask.Title,
+			Completed: false,
+		}
+	}
+
+	return Task{
+		Title:      source.Title,
+		Completed:  false,
+		Deadline:   getNextDeadline(source.Deadline, source.Recurrence),
+		Priority:   source.Priority,
+		Category:   source.Category,
+		Recurrence: source.Recurrence,
+		Subtasks:   newSubtasks,
+	}
 }
 
 func resolveListenAddr() string {
@@ -109,6 +175,10 @@ func main() {
 		c.Next()
 	})
 
+	// フロントエンドを配信する
+	r.StaticFile("/", "./web/index.html")
+	r.Static("/assets", "./web")
+
 	// タスク一覧を取得するAPI(GET/tasks)
 	r.GET("/tasks", func(c *gin.Context) {
 		c.JSON(http.StatusOK, tasks)
@@ -125,6 +195,8 @@ func main() {
 			newTask.Subtasks = []Subtask{}
 		}
 		newTask.Priority = normalizePriority(newTask.Priority)
+		newTask.Category = normalizeCategory(newTask.Category)
+		newTask.Recurrence = normalizeRecurrence(newTask.Recurrence)
 		newTask.Subtasks = ensureSubtaskIDs(newTask.Subtasks)
 		newTask.Completed = computeTaskCompletion(newTask)
 		newTask.ID = len(tasks) + 1
@@ -165,6 +237,7 @@ func main() {
 					return
 				}
 
+				oldCompleted := tasks[i].Completed
 				if input.Title != nil {
 					tasks[i].Title = *input.Title
 				}
@@ -173,6 +246,12 @@ func main() {
 				}
 				if input.Priority != nil {
 					tasks[i].Priority = normalizePriority(*input.Priority)
+				}
+				if input.Category != nil {
+					tasks[i].Category = normalizeCategory(*input.Category)
+				}
+				if input.Recurrence != nil {
+					tasks[i].Recurrence = normalizeRecurrence(*input.Recurrence)
 				}
 				if input.Subtasks != nil {
 					tasks[i].Subtasks = ensureSubtaskIDs(*input.Subtasks)
@@ -187,6 +266,11 @@ func main() {
 				}
 				if len(tasks[i].Subtasks) > 0 {
 					tasks[i].Completed = computeTaskCompletion(tasks[i])
+				}
+				if !oldCompleted && tasks[i].Completed && tasks[i].Recurrence != "none" {
+					newTask := createRecurringTask(tasks[i])
+					newTask.ID = len(tasks) + 1
+					tasks = append(tasks, newTask)
 				}
 
 				c.JSON(http.StatusOK, tasks[i])

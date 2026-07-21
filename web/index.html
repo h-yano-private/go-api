@@ -196,6 +196,29 @@
             color: #e74c3c;
             font-weight: bold;
         }
+
+        .task-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .task-category,
+        .task-recurrence {
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: #f0f4ff;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .task-category.work { background: #dbeafe; }
+        .task-category.personal { background: #ede9fe; }
+        .task-category.shopping { background: #dcfce7; }
+        .task-category.other { background: #fef3c7; }
         
         .task-progress {
             display: flex;
@@ -311,6 +334,26 @@
                 <input type="text" id="task-input" placeholder="新しいタスクを入力">
                 <input type="date" id="task-deadline" title="期限を選択">
             </div>
+            <div class="input-row">
+                <select id="task-priority">
+                    <option value="medium">優先度: 中</option>
+                    <option value="high">優先度: 高</option>
+                    <option value="low">優先度: 低</option>
+                </select>
+                <select id="task-category">
+                    <option value="">カテゴリ: なし</option>
+                    <option value="work">仕事</option>
+                    <option value="personal">プライベート</option>
+                    <option value="shopping">買い物</option>
+                    <option value="other">その他</option>
+                </select>
+                <select id="task-recurrence">
+                    <option value="none">繰り返しなし</option>
+                    <option value="daily">毎日</option>
+                    <option value="weekly">毎週</option>
+                    <option value="monthly">毎月</option>
+                </select>
+            </div>
             <div class="filter-row">
                 <input type="text" id="keyword-search" placeholder="キーワード検索" oninput="applyKeywordSearch(this.value)">
                 <select id="status-filter" onchange="applyFilters('status', this.value)">
@@ -324,23 +367,26 @@
                     <option value="due-soon">あと3日以内</option>
                     <option value="no-deadline">期限なし</option>
                 </select>
+                <select id="category-filter" onchange="applyFilters('category', this.value)">
+                    <option value="all">カテゴリ: すべて</option>
+                    <option value="work">仕事</option>
+                    <option value="personal">プライベート</option>
+                    <option value="shopping">買い物</option>
+                    <option value="other">その他</option>
+                    <option value="none">カテゴリなし</option>
+                </select>
                 <select id="sort-order" onchange="applySort(this.value)">
                     <option value="default">並び替え: なし</option>
                     <option value="priority-desc">優先度: 高→低</option>
                     <option value="priority-asc">優先度: 低→高</option>
                 </select>
-                <select id="task-priority">
-                    <option value="medium">優先度: 中</option>
-                    <option value="high">優先度: 高</option>
-                    <option value="low">優先度: 低</option>
-                </select>
             </div>
-            <button onclick="postTask()">追加</button>
+            <button id="add-button">追加</button>
         </div>
         
         <ul id="task-list"></ul>
     </div>
     
-    <script src="script.js"></script>
+    <script src="/assets/script.js"></script>
 </body>
 </html>
